@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>내 세계여행 노트</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{--bg:#f4f6f1;--card:#fff;--text:#1f2a1f;--mute:#667;--line:#dde3d6;--brand:#7cb342;--ok:#dcf59a;--warn:#ffe29a;--bad:#ffb3a8;--blue:#8ec9e8}
+@media(prefers-color-scheme:dark){:root{--bg:#151a14;--card:#1f261e;--text:#e6ece2;--mute:#9aa596;--line:#364032;--ok:#4a5a1f;--warn:#5c4a1a;--bad:#5e2b25;--blue:#1f4a63;color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+header{background:var(--brand);color:#fff;padding:12px 20px}header h1{margin:0 0 8px;font-size:20px}
+nav{display:flex;gap:6px;flex-wrap:wrap}nav a{color:#fff;text-decoration:none;padding:6px 14px;border-radius:20px;background:rgba(0,0,0,.15)}nav a.on{background:#fff;color:#3b6310}
+main{max-width:1000px;margin:20px auto;padding:0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+.grid2{display:grid;grid-template-columns:220px 1fr;gap:16px}@media(max-width:720px){.grid2{grid-template-columns:1fr}}
+.item{padding:9px 12px;border:1px solid var(--line);background:var(--card);border-radius:10px;cursor:pointer;margin-bottom:6px;display:flex;justify-content:space-between}
+.item.on{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand)}
+.tbl{overflow-x:auto}table{width:100%;border-collapse:collapse}th,td{border:1px solid var(--line);padding:8px 10px;text-align:left}th{width:100px;background:var(--bg)}
+.ok{background:var(--ok)}.warn{background:var(--warn)}.bad{background:var(--bad)}.blue{background:var(--blue)}
+.map{width:100%;height:480px;border:1px solid var(--line);border-radius:10px;margin-top:14px}
+#world{height:520px;border-radius:12px;z-index:0}
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.ph{border-radius:10px;overflow:hidden;background:var(--card);border:1px solid var(--line)}
+.ph .img{height:150px;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;color:#fff;font-size:34px}
+.ph p{margin:0;padding:8px 10px;font-size:14px}.ph small{color:var(--mute)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.chips span{padding:4px 12px;border-radius:16px;border:1px solid var(--line);cursor:pointer;background:var(--card)}.chips span.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.post{cursor:pointer}.post small{color:var(--mute)}a.back{cursor:pointer;color:var(--brand)}
+</style>
+</head>
+<body>
+<header><h1 id="t"></h1><nav id="nav"></nav></header>
+<main id="app"></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="data.js"></script>
+<script>
+const $=s=>document.querySelector(s), app=$("#app");
+const TABS=[["info","나라 정보"],["world","세계지도"],["gallery","사진"],["posts","여행기"]];
+const lv={1:["(1) Normal","ok"],2:["(2) Caution","warn"],3:["(3) Warning","bad"]};
+const cname=id=>(COUNTRIES.find(c=>c.id===id)||{}).n||id;
+let selC=COUNTRIES[0].id, galF="", postId=null, mapObj=null;
+document.title=SITE_TITLE.replace(/^\S+\s/,""); $("#t").textContent=SITE_TITLE;
+
+function nav(tab){$("#nav").innerHTML=TABS.map(([k,l])=>`<a href="#${k}" class="${k===tab?'on':''}">${l}</a>`).join("")}
+function esc(s){return String(s).replace(/[&<>]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]))}
+
+function info(){
+  const c=COUNTRIES.find(x=>x.id===selC);
+  app.innerHTML=`<div class="grid2"><div>${COUNTRIES.map(x=>`<div class="item ${x.id===selC?'on':''}" data-id="${x.id}"><span>${x.n}</span><small>${lv[x.safe][0].slice(0,3)}</small></div>`).join("")}</div>
+  <div class="card"><h2 style="margin-top:0">${c.n}</h2><div class="tbl"><table>
+  <tr><th>국가 안전</th><td class="${lv[c.safe][1]}">${lv[c.safe][0]}</td><th>수도</th><td>${c.cap}</td></tr>
+  <tr><th>방문 순서</th><td>${c.order} 번째 국가</td><th>첫 입국일</th><td>${c.first}</td></tr>
+  <tr><th>미국 여권</th><td class="blue">${c.us}</td><th>한국 여권</th><td class="blue">${c.kr}</td></tr>
+  <tr><th>통화/환율</th><td>${c.cur}</td><th>공용어</th><td>${c.lang}</td></tr>
+  <tr><th>외부 전원</th><td>${c.volt}</td><th>운전 방향</th><td>${c.drive}</td></tr></table></div>
+  ${c.map?`<iframe class="map" loading="lazy" allowfullscreen src="https://www.google.com/maps/d/embed?mid=${c.map}"></iframe>`:""}</div></div>`;
+  app.querySelectorAll(".item").forEach(e=>e.onclick=()=>{selC=e.dataset.id;info()});
+}
+function world(){
+  app.innerHTML=`<div class="card"><p style="margin-top:0">방문한 나라 <b>${COUNTRIES.filter(c=>c.visited).length}</b> / ${COUNTRIES.length} (초록 핀 = 방문, 회색 = 미방문)</p><div id="world"></div></div>`;
+  if(typeof L==="undefined"){$("#world").textContent="지도를 불러오지 못했습니다(인터넷 연결 확인).";return}
+  mapObj=L.map("world",{worldCopyJump:true}).setView([20,10],2);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:8,attribution:"© OpenStreetMap"}).addTo(mapObj);
+  COUNTRIES.forEach(c=>L.circleMarker([c.lat,c.lng],{radius:9,color:"#fff",weight:2,fillColor:c.visited?"#4caf50":"#999",fillOpacity:.95}).addTo(mapObj)
+    .bindPopup(`<b>${c.n}</b><br>${c.visited?"첫 입국 "+c.first:"미방문"}<br><a href="#info" onclick="selC='${c.id}'">나라 정보 보기</a>`));
+}
+function gallery(){
+  const ids=[...new Set(PHOTOS.map(p=>p.country))];
+  const list=PHOTOS.filter(p=>!galF||p.country===galF);
+  app.innerHTML=`<div class="chips"><span class="${!galF?'on':''}" data-c="">전체</span>${ids.map(i=>`<span class="${galF===i?'on':''}" data-c="${i}">${cname(i)}</span>`).join("")}</div>
+  <div class="gal">${list.map(p=>`<div class="ph"><div class="img" style="background-color:${p.color||'#888'};${p.src?`background-image:url('${p.src}')`:''}">${p.src?"":"📷"}</div><p>${esc(p.title)}<br><small>${cname(p.country)}</small></p></div>`).join("")}</div>`;
+  app.querySelectorAll(".chips span").forEach(e=>e.onclick=()=>{galF=e.dataset.c;gallery()});
+}
+function posts(){
+  if(postId){const p=POSTS.find(x=>x.id===postId);
+    app.innerHTML=`<a class="back">← 목록</a><div class="card"><h2 style="margin-top:0">${esc(p.title)}</h2><small>${p.date} · ${cname(p.country)}</small>${p.body.split(/\n\n+/).map(t=>`<p>${esc(t)}</p>`).join("")}</div>`;
+    app.querySelector(".back").onclick=()=>{postId=null;posts()};return}
+  app.innerHTML=[...POSTS].sort((a,b)=>b.date.localeCompare(a.date)).map(p=>`<div class="card post" data-id="${p.id}"><h3 style="margin:0">${esc(p.title)}</h3><small>${p.date} · ${cname(p.country)}</small></div>`).join("");
+  app.querySelectorAll(".post").forEach(e=>e.onclick=()=>{postId=+e.dataset.id;posts()});
+}
+const views={info,world,gallery,posts};
+function route(){const t=(location.hash||"#info").slice(1);const k=views[t]?t:"info";if(mapObj){mapObj.remove();mapObj=null}nav(k);postId=null;views[k]();window.scrollTo(0,0)}
+addEventListener("hashchange",route);route();
+</script>
+</body>
+</html>
